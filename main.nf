@@ -1,39 +1,22 @@
 #!/usr/bin/env nextflow
+nextflow.enable.dsl=2
 
-// Read the lists
-list1 = file(params.list1).readLines().collect { line ->
-    def (chr, file) = line.split(/\s+/)
-    return [chr: chr, file: file]
-}
+params.outdir = "results"
 
-list2 = file(params.list2).readLines().collect { line ->
-    def (chr, file) = line.split(/\s+/)
-    return [chr: chr, file: file]
-}
+include { MERGE_VCFS } from './modules/merge_vcfs.nf'
 
-// Pair up files by chromosome
-pairs = list1.findAll { map1 ->
-    list2.find { map2 ->
-        map1.chr == map2.chr
-    }
-}.collect { map1 ->
-    def map2 = list2.find { it.chr == map1.chr }
-    return [vcf1: map1.file, vcf2: map2.file]
-}
+// Read the paths from the configuration
+set1_path = params.dir1
+set2_path = params.dir2
 
-// Create the processing channel
-Channel.from(pairs).set { vcf_pairs }
+// Read the files into channels
+channel1 = Channel.fromPath(params.set1).splitCsv(sep:'\t', header:false).map { row -> tuple(row[0], file("${set1_path}/${row[1]}")) }
+channel2 = Channel.fromPath(params.set2).splitCsv(sep:'\t', header:false).map { row -> tuple(row[0], file("${set2_path}/${row[1]}")) }
 
-process run_merge_script {
-    input:
-    set val(vcf1), val(vcf2) from vcf_pairs
+// Join channels based on chromosome
+pairs_channel = channel1.join(channel2, by: 0)
 
-    """
-    merge_vcfs.sh ./input1.vcf.gz ./input2.vcf.gz output_merged.vcf.gz output_excluded_1.vcf.gz output_excluded_2.vcf.gz
-    """
-}
-
-workflow.onError {
-    println("Oops... Something went wrong!")
+workflow {
+    MERGE_VCFS(pairs_channel)
 }
 

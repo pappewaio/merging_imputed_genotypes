@@ -1,5 +1,7 @@
 process MERGE_VCFS {
-    publishDir "${params.outdir}/merged_files", mode: 'copy'
+    publishDir "${params.outdir}/merged", mode: 'copy', pattern: '*merged*'
+    publishDir "${params.outdir}/excluded", mode: 'copy', pattern: '*excluded*'
+    publishDir "${params.outdir}/extra", mode: 'copy', pattern: '*ids*'
 
     input:
     tuple val(chr), path(vcf1), path(vcf2)

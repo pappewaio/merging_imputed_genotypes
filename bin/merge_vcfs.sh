@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Check for correct number of arguments
-if [[ $# -ne 5 ]]; then
-    echo "Usage: $0 <file1.vcf.gz> <file2.vcf.gz> <output_merged.vcf.gz> <output_excluded_1.vcf.gz> <output_excluded_2.vcf.gz>"
+if [[ $# -ne 8 ]]; then
+    echo "Usage: $0 <file1.vcf.gz> <file2.vcf.gz> <output_merged.vcf.gz> <output_excluded_1.vcf.gz> <output_excluded_2.vcf.gz>" "<overlapping>" "<unique1>" "<unique2>"
     exit 1
 fi
 
@@ -14,6 +14,10 @@ VCF2="$2"
 OUTPUT_MERGED="$3"
 OUTPUT_EXCLUDED1="$4"
 OUTPUT_EXCLUDED2="$5"
+OUTPUT_IDS="$6"
+OUTPUT_EXCLUDED1_IDS="$7"
+OUTPUT_EXCLUDED2_IDS="$8"
+
 
 # Identify overlapping and unique variants
 bcftools query -f '%ID\n' "$VCF1" | sort > ID1
@@ -28,6 +32,11 @@ bcftools view -i 'ID=@overlapping_ids.txt' -Oz "$VCF2" > vcf2_common.vcf.gz
 bcftools view -i 'ID=@vcf1_unique_ids.txt' -Oz "$VCF1" > ${OUTPUT_EXCLUDED1}
 bcftools view -i 'ID=@vcf2_unique_ids.txt' -Oz "$VCF2" > ${OUTPUT_EXCLUDED2}
 
+# Rename
+mv overlapping_ids.txt ${OUTPUT_IDS}
+mv vcf1_unique_ids.txt ${OUTPUT_EXCLUDED1_IDS}
+mv vcf2_unique_ids.txt ${OUTPUT_EXCLUDED2_IDS}
+
 # Merge the overlapping variants
 tabix -p vcf vcf1_common.vcf.gz
 tabix -p vcf vcf2_common.vcf.gz
@@ -35,5 +44,7 @@ bcftools merge -m id -Oz -o "$OUTPUT_MERGED" vcf1_common.vcf.gz vcf2_common.vcf.
 
 # Make tabix index
 tabix -p vcf "$OUTPUT_MERGED"
+tabix -p vcf "${OUTPUT_EXCLUDED1}"
+tabix -p vcf "${OUTPUT_EXCLUDED2}"
 
 

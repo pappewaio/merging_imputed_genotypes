@@ -7,11 +7,14 @@ process QUERY_VCF {
     tuple val(chr), val(group), val(genofile), path("genodir")
 
     output:
-    tuple val(chr),  val(group), path("${chr}_${group}_ID")
+    tuple val(chr),  val(group), path("${chr}_${group}_ID"), emit: ids
+    tuple val(chr),  val(group), path("${chr}_${group}_samples.txt"), emit: samples
 
     script:
     """
     bcftools query -f '%ID\n' "genodir/${genofile}" | sort > ${chr}_${group}_ID
+    bcftools query -l "genodir/${genofile}" > "${chr}_${group}_samples.txt"
+
     """
 }
 
@@ -50,20 +53,55 @@ process COMMON_IDS {
     """
 }
 
-process COMMON_FILTER_VCF {
+process COMMON_SAMPLES {
+    publishDir "${params.outdir}/intermediates", mode: 'copy'
+ 
+    cpus 1
+
+    input:
+    tuple val(chr), val(group1), path(ID1), val(group2), path(ID2)
+
+    output:
+    tuple val(chr), path("${chr}_overlapping_samples.txt")
+
+    script:
+    """
+    comm -12 $ID1 $ID2 > ${chr}_overlapping_samples.txt
+    """
+}
+
+
+process COMMON_SAMPLES_FILTER_VCF {
     publishDir "${params.outdir}/${group}", mode: 'copy'
  
     cpus 1
 
     input:
-    tuple val(chr), val(group), val(genofile), path("genodir"), path("overlapping_ids.txt")
+    tuple val(chr), val(group), val(genofile), path("genodir"), path("overlapping_samples.txt")
+
+    output:
+    tuple val(chr), val(group), path("${chr}_${group}_independent_samples.vcf.gz")
+
+    script:
+    """
+    bcftools view -S '^overlapping_samples.txt' -Oz "genodir/${genofile}" > ${chr}_${group}_independent_samples.vcf.gz
+    """
+}
+
+process COMMON_ID_FILTER_VCF {
+    publishDir "${params.outdir}/${group}", mode: 'copy'
+ 
+    cpus 1
+
+    input:
+    tuple val(chr), val(group), path(genofile), path("overlapping_ids.txt")
 
     output:
     tuple val(chr), val(group), path("${chr}_${group}_common.vcf.gz")
 
     script:
     """
-    bcftools view -i 'ID=@overlapping_ids.txt' -Oz "genodir/${genofile}" > ${chr}_${group}_common.vcf.gz
+    bcftools view -i 'ID=@overlapping_ids.txt' -Oz "${genofile}" > ${chr}_${group}_common.vcf.gz
     """
 }
 

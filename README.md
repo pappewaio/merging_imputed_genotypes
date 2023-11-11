@@ -22,11 +22,18 @@ mamba activate merging_imputed_genotypes
 ```
 
 
-## Run merger
+## Run merger vcf
 ```
 srun --mem=8g --ntasks 1 --cpus-per-task 2 --time=9:00:00 --account ibp_pipeline_cleansumstats --pty /bin/bash
 conda activate merging_imputed_genotypes
-nextflow run main.nf
+nextflow run main.nf --type vcf
+```
+
+## Run merger pgen
+```
+srun --mem=8g --ntasks 1 --cpus-per-task 2 --time=9:00:00 --account ibp_pipeline_cleansumstats --pty /bin/bash
+conda activate merging_imputed_genotypes
+nextflow run main.nf --type pgen
 ```
 
 

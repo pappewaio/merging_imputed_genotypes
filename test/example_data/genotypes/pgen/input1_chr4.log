@@ -1,0 +1,25 @@
+PLINK v2.00a5LM 64-bit Intel (23 Sep 2023)
+Options in effect:
+  --double-id
+  --memory 2500
+  --out test/example_data/genotypes/pgen/input1_chr4
+  --threads 5
+  --vcf test/example_data/genotypes/vcf/input1_chr4.vcf.gz dosage=DS
+
+Hostname: parallels-Parallels-Virtual-Platform
+Working directory: /media/psf/Home/repos/merging_imputed_genotypes
+Start time: Sat Nov 11 19:14:11 2023
+
+Random number seed: 1699726451
+15978 MiB RAM detected, ~14287 available; reserving 2500 MiB for main
+workspace.
+Using up to 5 compute threads.
+Warning: No FORMAT/DS key found in --vcf file header. Dosages will not be
+imported. (If this header line is actually present, but with extra spaces or
+unusual field ordering, standardize the header with e.g. bcftools.)
+--vcf: 9 variants scanned.
+--vcf: test/example_data/genotypes/pgen/input1_chr4.pgen +
+test/example_data/genotypes/pgen/input1_chr4.pvar +
+test/example_data/genotypes/pgen/input1_chr4.psam written.
+
+End time: Sat Nov 11 19:14:11 2023

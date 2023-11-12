@@ -8,6 +8,7 @@ include {
  COMMON_SAMPLES
  COMMON_SAMPLES_FILTER_VCF
  COMMON_ID_FILTER_VCF
+ REMOVE_INFO_VCF
  MERGE_VCF
 } from '../process/pr_general.nf'
 
@@ -46,13 +47,16 @@ workflow merge_vcfs {
     .combine(COMMON_IDS.out, by:0)
     .set { ch_to_filter }
     COMMON_ID_FILTER_VCF(ch_to_filter)
+    
+    // Remove INFO as it will be misleading in the merged file
+    REMOVE_INFO_VCF(COMMON_ID_FILTER_VCF.out)
 
     // Do the merge
-    ch_cfilter_out_file1 = COMMON_ID_FILTER_VCF.out.filter { it[1] == "file1" }
-    ch_cfilter_out_file2 = COMMON_ID_FILTER_VCF.out.filter { it[1] == "file2" }
+    ch_cfilter_out_file1 = REMOVE_INFO_VCF.out.no_info.filter { it[1] == "file1" }
+    ch_cfilter_out_file2 = REMOVE_INFO_VCF.out.no_info.filter { it[1] == "file2" }
     ch_cfilter_out_file1.join(ch_cfilter_out_file2, by: 0)
     .set { ch_joined_output_2 }
     MERGE_VCF(ch_joined_output_2)
-    
 }
+
 

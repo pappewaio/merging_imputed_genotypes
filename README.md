@@ -6,6 +6,8 @@ It would be great to prepare a few .ppt slides describing the merge and conversi
 Find the MAF and INFO score data.
 We also want to restrict to just EUR subset for the test analysis 
 
+output also the separate common ID sets, which can be useful
+
 ## Installation
 
 ```

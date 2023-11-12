@@ -15,6 +15,7 @@ process QUERY_VCF {
     bcftools query -f '%ID\n' "genodir/${genofile}" | sort > ${chr}_${group}_ID
     bcftools query -l "genodir/${genofile}" > "${chr}_${group}_samples.txt"
 
+
     """
 }
 
@@ -104,6 +105,34 @@ process COMMON_ID_FILTER_VCF {
     bcftools view -i 'ID=@overlapping_ids.txt' -Oz "${genofile}" > ${chr}_${group}_common.vcf.gz
     """
 }
+
+process REMOVE_INFO_VCF {
+    publishDir "${params.outdir}/intermediates/${group}", mode: 'copy'
+ 
+    cpus 1
+
+    input:
+    tuple val(chr), val(group), path(genofile)
+
+    output:
+    tuple val(chr), val(group), path("${chr}_${group}_no_info.vcf.gz"), emit: no_info
+    tuple val(chr), val(group), path("${chr}_${group}_info_data.txt"), emit: info
+
+    script:
+    """
+    # Take now and later remove all INFO columns, as they are impossible to keep in a merged dataset. 
+    bcftools view -h ${genofile} | grep "^##INFO" | cut -d ',' -f1 | cut -d '=' -f3 | awk '{printf("%%" \$1 ";")}' | sed 's/;\$//' > info_fields.txt
+
+    # Use bcftools query to extract the data
+    format_string=\$(cat info_fields.txt)
+    bcftools query -f "\${format_string}\n" ${genofile} > ${chr}_${group}_info_data.txt 
+
+    # Remove INFO
+    bcftools annotate --remove \$(cat info_fields.txt | sed 's/%/INFO\\//g' | tr ';' ',') -Oz -o ${chr}_${group}_no_info.vcf.gz ${genofile}
+
+    """
+}
+
 
 process COMMON_FILTER_PGEN {
     publishDir "${params.outdir}/${group}", mode: 'copy'

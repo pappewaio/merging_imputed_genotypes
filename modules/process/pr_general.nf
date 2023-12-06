@@ -1,4 +1,4 @@
-process QUERY_VCF {
+process QUERY_VCF_SAMPLES {
     publishDir "${params.outdir}/intermediates", mode: 'copy'
  
     cpus 2
@@ -7,15 +7,47 @@ process QUERY_VCF {
     tuple val(chr), val(group), val(genofile), path("genodir")
 
     output:
-    tuple val(chr),  val(group), path("${chr}_${group}_ID"), emit: ids
     tuple val(chr),  val(group), path("${chr}_${group}_samples.txt"), emit: samples
 
     script:
     """
-    bcftools query -f '%ID\n' "genodir/${genofile}" | sort > ${chr}_${group}_ID
     bcftools query -l "genodir/${genofile}" > "${chr}_${group}_samples.txt"
 
 
+    """
+}
+
+process QUERY_VCF_VARIANTS {
+    publishDir "${params.outdir}/intermediates", mode: 'copy'
+ 
+    cpus 2
+
+    input:
+    tuple val(chr), val(group), val(split), val(genofile)
+
+    output:
+    tuple val(chr),  val(group), val(split), path("${chr}_${group}_ID"), emit: ids
+
+    script:
+    """
+    bcftools query -f '%ID\n' "${genofile}" | sort > ${chr}_${group}_ID
+
+
+    """
+}
+
+process SPLIT_VCF {
+    publishDir "${params.outdir}/intermediates/splits", mode: 'copy'
+ 
+    input:
+    tuple val(chr), val(group), path(genofile)
+
+    output:
+    tuple val(chr),  val(group), path("*")
+
+    script:
+    """
+    zcat ${genofile} | split_vcf.sh "${params.maxvariants}"
     """
 }
 
@@ -43,14 +75,14 @@ process COMMON_IDS {
     cpus 1
 
     input:
-    tuple val(chr), val(group1), path(ID1), val(group2), path(ID2)
+    tuple val(chr), val(split), val(group1), path(ID1), val(group2), path(ID2)
 
     output:
-    tuple val(chr), path("${chr}_overlapping_ids.txt")
+    tuple val(chr), path("${chr}_${split}_overlapping_ids.txt"), val(split)
 
     script:
     """
-    comm -12 $ID1 $ID2 > ${chr}_overlapping_ids.txt
+    comm -12 $ID1 $ID2 > ${chr}_${split}_overlapping_ids.txt
     """
 }
 
@@ -95,14 +127,14 @@ process COMMON_ID_FILTER_VCF {
     cpus 1
 
     input:
-    tuple val(chr), val(group), path(genofile), path("overlapping_ids.txt")
+    tuple val(chr), val(split), val(group), path(genofile), path("overlapping_ids.txt")
 
     output:
-    tuple val(chr), val(group), path("${chr}_${group}_common.vcf.gz")
+    tuple val(chr), val(split), val(group), path("${chr}_${split}_${group}_common.vcf.gz")
 
     script:
     """
-    bcftools view -i 'ID=@overlapping_ids.txt' -Oz "${genofile}" > ${chr}_${group}_common.vcf.gz
+    bcftools view -i 'ID=@overlapping_ids.txt' -Oz "${genofile}" > ${chr}_${split}_${group}_common.vcf.gz
     """
 }
 
@@ -112,11 +144,11 @@ process REMOVE_INFO_VCF {
     cpus 1
 
     input:
-    tuple val(chr), val(group), path(genofile)
+    tuple val(chr), val(split), val(group), path(genofile)
 
     output:
-    tuple val(chr), val(group), path("${chr}_${group}_no_info.vcf.gz"), emit: no_info
-    tuple val(chr), val(group), path("${chr}_${group}_info_data.txt"), emit: info
+    tuple val(chr), val(group), val(split), path("${chr}_${group}_${split}_no_info.vcf.gz"), emit: no_info
+    tuple val(chr), val(group), val(split), path("${chr}_${group}_${split}_info_data.txt"), emit: info
 
     script:
     """
@@ -125,10 +157,10 @@ process REMOVE_INFO_VCF {
 
     # Use bcftools query to extract the data
     format_string=\$(cat info_fields.txt)
-    bcftools query -f "\${format_string}\n" ${genofile} > ${chr}_${group}_info_data.txt 
+    bcftools query -f "\${format_string}\n" ${genofile} > ${chr}_${group}_${split}_info_data.txt 
 
     # Remove INFO
-    bcftools annotate --remove \$(cat info_fields.txt | sed 's/%/INFO\\//g' | tr ';' ',') -Oz -o ${chr}_${group}_no_info.vcf.gz ${genofile}
+    bcftools annotate --remove \$(cat info_fields.txt | sed 's/%/INFO\\//g' | tr ';' ',') -Oz -o ${chr}_${group}_${split}_no_info.vcf.gz ${genofile}
 
     """
 }
@@ -156,22 +188,22 @@ process COMMON_FILTER_PGEN {
 }
 
 process MERGE_VCF {
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.outdir}/intermediates", mode: 'copy'
  
     cpus 1
 
     input:
-    tuple val(chr), val(group1), path("vcf1_common.vcf.gz"), val(group2), path("vcf2_common.vcf.gz")
+    tuple val(chr), val(split), val(group1), path("vcf1_common.vcf.gz"), val(group2), path("vcf2_common.vcf.gz")
 
     output:
-    tuple val(chr), path("${chr}_merged.vcf.gz"), path("${chr}_merged.vcf.gz.tbi")
+    tuple val(chr), val(split), path("${chr}_${split}_merged.vcf.gz"), path("${chr}_${split}_merged.vcf.gz.tbi")
 
     script:
     """
     tabix -p vcf vcf1_common.vcf.gz
     tabix -p vcf vcf2_common.vcf.gz
-    bcftools merge -m id -Oz -o "${chr}_merged.vcf.gz" vcf1_common.vcf.gz vcf2_common.vcf.gz
-    tabix -p vcf "${chr}_merged.vcf.gz"
+    bcftools merge -m id -Oz -o "${chr}_${split}_merged.vcf.gz" vcf1_common.vcf.gz vcf2_common.vcf.gz
+    tabix -p vcf "${chr}_${split}_merged.vcf.gz"
     """
 }
 
@@ -201,7 +233,26 @@ process MERGE_PGEN {
 
 }
 
+process CONCAT_VCF {
+    publishDir "${params.outdir}/merged", mode: 'copy'
+ 
+    input:
+    tuple val(chr), val(files_order), path(files), path(files_tbi)
 
+    output:
+    tuple val(chr), path("${chr}_merged.vcf.gz")
 
+    script:
+    def files_order2 = files_order.join("\n")
+    def files2 = files.join("\n")
+    """
+    echo "${files_order2}" > flo
+    echo "${files2}" > fl
+    paste flo fl > to_concatenate
+    sort -n -k1,1 to_concatenate | cut -f2 > to_concatenate_2
 
+    bcftools concat --naive --file-list to_concatenate_2 -Oz -o "${chr}_merged.vcf.gz"
+    tabix -p vcf "${chr}_merged.vcf.gz"
+    """
+}
 

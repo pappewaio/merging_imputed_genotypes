@@ -188,7 +188,7 @@ process COMMON_FILTER_PGEN {
 }
 
 process MERGE_VCF {
-    publishDir "${params.outdir}/intermediates", mode: 'copy'
+    publishDir "${params.outdir}/intermediates", mode: 'rellink'
  
     cpus 1
 
@@ -196,14 +196,13 @@ process MERGE_VCF {
     tuple val(chr), val(split), val(group1), path("vcf1_common.vcf.gz"), val(group2), path("vcf2_common.vcf.gz")
 
     output:
-    tuple val(chr), val(split), path("${chr}_${split}_merged.vcf.gz"), path("${chr}_${split}_merged.vcf.gz.tbi")
+    tuple val(chr), val(split), path("${chr}_${split}_merged.vcf.gz")
 
     script:
     """
     tabix -p vcf vcf1_common.vcf.gz
     tabix -p vcf vcf2_common.vcf.gz
     bcftools merge -m id -Oz -o "${chr}_${split}_merged.vcf.gz" vcf1_common.vcf.gz vcf2_common.vcf.gz
-    tabix -p vcf "${chr}_${split}_merged.vcf.gz"
     """
 }
 
@@ -237,10 +236,10 @@ process CONCAT_VCF {
     publishDir "${params.outdir}/merged", mode: 'copy'
  
     input:
-    tuple val(chr), val(files_order), path(files), path(files_tbi)
+    tuple val(chr), val(files_order), path(files)
 
     output:
-    tuple val(chr), path("${chr}_merged.vcf.gz")
+    tuple val(chr), path("${chr}_merged.vcf.gz"), path("${chr}_merged.vcf.gz.tbi")
 
     script:
     def files_order2 = files_order.join("\n")

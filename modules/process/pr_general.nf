@@ -105,7 +105,7 @@ process COMMON_SAMPLES {
 
 
 process COMMON_SAMPLES_FILTER_VCF {
-    publishDir "${params.outdir}/${group}", mode: 'copy'
+    publishDir "${params.outdir}/intermediates/${group}", mode: 'copy'
  
     cpus 1
 
@@ -122,7 +122,7 @@ process COMMON_SAMPLES_FILTER_VCF {
 }
 
 process COMMON_ID_FILTER_VCF {
-    publishDir "${params.outdir}/${group}", mode: 'copy'
+    publishDir "${params.outdir}/intermediates/${group}", mode: 'copy'
  
     cpus 1
 
@@ -156,8 +156,9 @@ process REMOVE_INFO_VCF {
     bcftools view -h ${genofile} | grep "^##INFO" | cut -d ',' -f1 | cut -d '=' -f3 | awk '{printf("%%" \$1 ";")}' | sed 's/;\$//' > info_fields.txt
 
     # Use bcftools query to extract the data
-    format_string=\$(cat info_fields.txt)
-    bcftools query -f "\${format_string}\n" ${genofile} > ${chr}_${group}_${split}_info_data.txt 
+    format_string="%ID;\$(cat info_fields.txt)"
+
+    bcftools query -H -f "\${format_string}\n" ${genofile} > ${chr}_${group}_${split}_info_data.txt 
 
     # Remove INFO
     bcftools annotate --remove \$(cat info_fields.txt | sed 's/%/INFO\\//g' | tr ';' ',') -Oz -o ${chr}_${group}_${split}_no_info.vcf.gz ${genofile}
@@ -252,6 +253,53 @@ process CONCAT_VCF {
 
     bcftools concat --naive --file-list to_concatenate_2 -Oz -o "${chr}_merged.vcf.gz"
     tabix -p vcf "${chr}_merged.vcf.gz"
+    """
+}
+
+process CONCAT_INDEP_VCF {
+    publishDir "${params.outdir}/${group}", mode: 'copy'
+ 
+    input:
+    tuple val(chr), val(group), val(files_order), path(files)
+
+    output:
+    tuple val(chr), val(group), path("${chr}_common_variants.vcf.gz"), path("${chr}_common_variants.vcf.gz.tbi")
+
+    script:
+    def files_order2 = files_order.join("\n")
+    def files2 = files.join("\n")
+    """
+    echo "${files_order2}" > flo
+    echo "${files2}" > fl
+    paste flo fl > to_concatenate
+    sort -n -k1,1 to_concatenate | cut -f2 > to_concatenate_2
+
+    bcftools concat --naive --file-list to_concatenate_2 -Oz -o "${chr}_common_variants.vcf.gz"
+    tabix -p vcf "${chr}_common_variants.vcf.gz"
+    """
+}
+
+process CONCAT_INFO {
+    publishDir "${params.outdir}/${group}", mode: 'copy'
+ 
+    input:
+    tuple val(chr), val(group), val(files_order), path(files)
+
+    output:
+    tuple val(chr), val(group), path("${chr}_info.gz")
+
+    script:
+    def files_order2 = files_order.join("\n")
+    def files2 = files.join("\n")
+    """
+    echo "${files_order2}" > flo
+    echo "${files2}" > fl
+    paste flo fl > to_concatenate
+    sort -n -k1,1 to_concatenate | cut -f2 > to_concatenate_2
+
+    concat_info.sh "to_concatenate_2" "${chr}_info"
+    gzip "${chr}_info"
+
     """
 }
 

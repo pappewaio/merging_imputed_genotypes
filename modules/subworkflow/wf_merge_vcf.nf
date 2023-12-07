@@ -13,6 +13,8 @@ include {
  REMOVE_INFO_VCF
  MERGE_VCF
  CONCAT_VCF
+ CONCAT_INFO
+ CONCAT_INDEP_VCF
 } from '../process/pr_general.nf'
 
 workflow merge_vcfs {
@@ -87,7 +89,20 @@ workflow merge_vcfs {
    MERGE_VCF.out
    .groupTuple(by: 0)
    .set {ch_to_concatenate}
-
    CONCAT_VCF(ch_to_concatenate)
+
+   // Concatenate per chromosome (indep vcfs)
+   REMOVE_INFO_VCF.out.no_info
+   .groupTuple(by: [0,1])
+   .set {ch_indep_to_concatenate}
+   CONCAT_INDEP_VCF(ch_indep_to_concatenate)
+
+   // Concatenate also info
+   REMOVE_INFO_VCF.out.info
+   .groupTuple(by: [0,1])
+   .set {ch_info_to_concatenate}
+   CONCAT_INFO(ch_info_to_concatenate)
+   //ch_info_to_concatenate.view()
 }
+
 

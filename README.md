@@ -31,6 +31,22 @@ conda activate merging_imputed_genotypes
 nextflow run main.nf --type vcf
 ```
 
+Use a wrapper to process chromosomes in parallel on a sbatch system
+```
+for chr in $(seq 1 21);do
+  sleep 0.1;
+  sbatch --mem=40g --ntasks 1 --cpus-per-task 30 --time=9:00:00 --account ibp_pipeline_cleansumstats --job-name="cl_${chr}" --output="clean_${chr}.out" --error="clean_${chr}.err" --wrap="
+  echo ${chr} 
+  date
+  conda activate merging_imputed_genotypes
+  nextflow run main.nf --type vcf --mergevcf.set1 test/example_data/assets/vcf/set1
+  echo ${chr}
+  date
+  "
+done
+```
+
+
 ## Run merger pgen
 ```
 srun --mem=8g --ntasks 1 --cpus-per-task 2 --time=9:00:00 --account ibp_pipeline_cleansumstats --pty /bin/bash

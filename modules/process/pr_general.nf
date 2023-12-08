@@ -11,7 +11,7 @@ process QUERY_VCF_SAMPLES {
 
     script:
     """
-    bcftools query -l "genodir/${genofile}" > "${chr}_${group}_samples.txt"
+    bcftools query -l "genodir/${genofile}" | sort > "${chr}_${group}_samples.txt"
 
 
     """

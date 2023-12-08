@@ -1,8 +1,6 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-params.outdir = "results"
-
 include { merge_vcfs } from './modules/subworkflow/wf_merge_vcf.nf'
 include { merge_pgens } from './modules/subworkflow/wf_merge_pgen.nf'
 
